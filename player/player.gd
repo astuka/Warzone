@@ -6,10 +6,13 @@ const EYE_HEIGHT_CROUCH = 1.4
 const MOVEMENT_SPEED_GROUND = 0.6
 const MOVEMENT_SPEED_AIR = 0.11
 const MOVEMENT_SPEED_CROUCH_MODIFIER = 0.5
+const MOVEMENT_SPEED_SPRINT_MODIFIER = 1.8
 const MOVEMENT_FRICTION_GROUND = 0.9
 const MOVEMENT_FRICTION_AIR = 0.98
 
 const MAX_HEALTH = 100
+const LEAN_ANGLE = 15.0  # Degrees to lean
+const LEAN_SPEED = 8.0  # Speed of lean transition
 
 var _mouse_motion = Vector2()
 
@@ -17,10 +20,14 @@ var current_weapon_index: int = 0
 var weapons: Array[Weapon] = []
 var health: int = MAX_HEALTH
 var is_dead: bool = false
+var lean_amount: float = 0.0  # -1.0 to 1.0 (left to right)
+var is_iron_sights: bool = false
+var is_map_visible: bool = false
 
 @onready var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 @onready var head = $Head
+@onready var camera = $Head/Camera3D
 @onready var raycast = $Head/RayCast3D
 @onready var camera_attributes = $Head/Camera3D.attributes
 @onready var voxel_world = $"../VoxelWorld"
@@ -28,6 +35,13 @@ var is_dead: bool = false
 @onready var weapon_mesh = $Head/WeaponMesh
 @onready var health_bar = $"../PauseMenu/HealthBar"
 @onready var pause_menu = $"../PauseMenu"
+@onready var map_camera = $"../MapCamera"
+
+const FOV_NORMAL = 74.0
+const FOV_IRON_SIGHTS = 55.0  # Zoomed in FOV for iron sights
+
+const STONE_BLOCK = 1  # Block ID for stone blocks
+const BLOCK_PLACEMENT_RANGE = 5.0  # Maximum distance for block placement
 
 
 func _ready():
@@ -63,10 +77,30 @@ func _process(_delta):
 	if get_tree().paused:
 		return
 	
+	# Update map camera position if map is visible
+	if is_map_visible:
+		_update_map_camera()
+	
 	# Mouse movement.
 	_mouse_motion.y = clamp(_mouse_motion.y, -1560, 1560)
 	transform.basis = Basis.from_euler(Vector3(0, _mouse_motion.x * -0.001, 0))
-	head.transform.basis = Basis.from_euler(Vector3(_mouse_motion.y * -0.001, 0, 0))
+	# Note: Head rotation is now handled in _physics_process to include lean
+	
+	# Map toggle (M key)
+	if Input.is_action_just_pressed(&"map"):
+		toggle_map()
+	
+	# Don't process other inputs when map is visible
+	if is_map_visible:
+		return
+	
+	# Iron sights (right click)
+	is_iron_sights = Input.is_action_pressed(&"iron_sights")
+	# Update camera FOV for zoom effect
+	if camera:
+		var target_fov = FOV_IRON_SIGHTS if is_iron_sights else FOV_NORMAL
+		camera.fov = lerpf(camera.fov, target_fov, 0.2)
+	_update_weapon_display()
 
 	# Weapon switching
 	if Input.is_action_just_pressed(&"weapon_1"):
@@ -75,12 +109,18 @@ func _process(_delta):
 	elif Input.is_action_just_pressed(&"weapon_2"):
 		current_weapon_index = 1
 		_update_weapon_display()
+	elif Input.is_action_just_pressed(&"weapon_3"):
+		current_weapon_index = 2
+		_update_weapon_display()
 	
-	current_weapon_index = clamp(current_weapon_index, 0, weapons.size() - 1)
+	current_weapon_index = clamp(current_weapon_index, 0, 2)  # Max index is 2 (0=pistol, 1=rocket, 2=blocks)
 	
-	# Shooting
+	# Shooting or block placement
 	if crosshair.visible and Input.is_action_just_pressed(&"shoot"):
-		if weapons.size() > current_weapon_index:
+		if current_weapon_index == 2:
+			# Block placement mode
+			_place_block()
+		elif weapons.size() > current_weapon_index:
 			var current_weapon = weapons[current_weapon_index]
 			# Update raycast range for weapon
 			raycast.target_position = Vector3(0, 0, -current_weapon.range_distance)
@@ -94,8 +134,8 @@ func _physics_process(delta):
 	if is_dead:
 		return
 	
-	# Don't process physics when paused
-	if get_tree().paused:
+	# Don't process physics when paused or map is visible
+	if get_tree().paused or is_map_visible:
 		return
 	
 	camera_attributes.dof_blur_far_enabled = Settings.fog_enabled
@@ -104,6 +144,23 @@ func _physics_process(delta):
 	# Crouching.
 	var crouching = Input.is_action_pressed(&"crouch")
 	head.transform.origin.y = lerpf(head.transform.origin.y, EYE_HEIGHT_CROUCH if crouching else EYE_HEIGHT_STAND, 16 * delta)
+	
+	# Leaning (Q/E keys) - Fixed: Q leans left, E leans right
+	var lean_left_pressed = Input.is_action_pressed(&"lean_left")
+	var lean_right_pressed = Input.is_action_pressed(&"lean_right")
+	var target_lean: float = 0.0
+	if lean_left_pressed and not lean_right_pressed:
+		target_lean = 1.0  # Positive for left lean (roll right)
+	elif lean_right_pressed and not lean_left_pressed:
+		target_lean = -1.0  # Negative for right lean (roll left)
+	else:
+		target_lean = 0.0
+	
+	lean_amount = lerpf(lean_amount, target_lean, LEAN_SPEED * delta)
+	
+	# Apply lean rotation to head (roll rotation)
+	var lean_rotation = lean_amount * deg_to_rad(LEAN_ANGLE)
+	head.transform.basis = Basis.from_euler(Vector3(_mouse_motion.y * -0.001, 0, lean_rotation))
 
 	# Check if player is near a ladder block
 	var is_near_ladder = _check_near_ladder()
@@ -119,6 +176,11 @@ func _physics_process(delta):
 
 	if crouching:
 		movement *= MOVEMENT_SPEED_CROUCH_MODIFIER
+	
+	# Sprinting (Shift key)
+	var sprinting = Input.is_action_pressed(&"sprint")
+	if sprinting and not crouching and is_on_floor():
+		movement *= MOVEMENT_SPEED_SPRINT_MODIFIER
 
 	# Ladder climbing - allow vertical movement when near ladder
 	if is_near_ladder:
@@ -163,18 +225,33 @@ func _update_weapon_display():
 	if hotbar:
 		hotbar.set_current_weapon(current_weapon_index)
 	
-	# Update weapon mesh visibility
+	# Update weapon mesh visibility and position
 	if weapon_mesh:
-		weapon_mesh.visible = true
-		# Update mesh based on weapon type
-		if current_weapon_index == 0:
-			# Pistol - smaller cube
-			weapon_mesh.scale = Vector3(0.1, 0.15, 0.3)
-			weapon_mesh.position = Vector3(0.3, -0.2, -0.5)
+		if current_weapon_index == 2:
+			# Block placement mode - hide weapon mesh
+			weapon_mesh.visible = false
 		else:
-			# Rocket launcher - larger cube
-			weapon_mesh.scale = Vector3(0.15, 0.2, 0.5)
-			weapon_mesh.position = Vector3(0.3, -0.25, -0.6)
+			weapon_mesh.visible = true
+			# Update mesh based on weapon type and iron sights state
+			var base_position: Vector3
+			var iron_sights_position: Vector3
+			
+			if current_weapon_index == 0:
+				# Pistol - smaller cube
+				weapon_mesh.scale = Vector3(0.1, 0.15, 0.3)
+				base_position = Vector3(0.3, -0.2, -0.5)
+				iron_sights_position = Vector3(0.0, -0.15, -0.25)  # Center-bottom for iron sights
+			else:
+				# Rocket launcher - larger cube
+				weapon_mesh.scale = Vector3(0.15, 0.2, 0.5)
+				base_position = Vector3(0.3, -0.25, -0.6)
+				iron_sights_position = Vector3(0.0, -0.4, -0.35)  # Center-bottom for iron sights
+			
+			# Smoothly transition between normal and iron sights position
+			if is_iron_sights:
+				weapon_mesh.position = weapon_mesh.position.lerp(iron_sights_position, 0.2)
+			else:
+				weapon_mesh.position = weapon_mesh.position.lerp(base_position, 0.2)
 
 func take_damage(amount: int):
 	if is_dead:
@@ -279,3 +356,62 @@ func _check_near_ladder() -> bool:
 			return true
 	
 	return false
+
+func _place_block():
+	# Place a stone block at the location the player is looking at
+	if not voxel_world:
+		return
+	
+	# Update raycast to check for block placement
+	raycast.target_position = Vector3(0, 0, -BLOCK_PLACEMENT_RANGE)
+	raycast.force_raycast_update()
+	
+	if raycast.is_colliding():
+		var hit_position = raycast.get_collision_point()
+		var hit_normal = raycast.get_collision_normal()
+		
+		# Calculate where to place the block (adjacent to the hit face)
+		var block_pos = Vector3i((hit_position + hit_normal * 0.5).floor())
+		
+		# Don't place blocks inside the player
+		var player_block_pos = Vector3i(global_position.floor())
+		# Convert to Vector3 to calculate distance
+		if Vector3(block_pos).distance_to(Vector3(player_block_pos)) < 1.5:
+			return
+		
+		# Check if there's already a block at this position
+		var existing_block = voxel_world.get_block_global_position(block_pos)
+		if existing_block == 0:  # Only place if position is empty
+			voxel_world.set_block_global_position(block_pos, STONE_BLOCK)
+	
+	# Restore original raycast range
+	raycast.target_position = Vector3(0, 0, -4)
+
+func toggle_map():
+	is_map_visible = not is_map_visible
+	
+	if is_map_visible:
+		# Show map - switch to map camera
+		if camera:
+			camera.current = false
+		if map_camera:
+			map_camera.current = true
+			_update_map_camera()
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	else:
+		# Hide map - switch back to normal camera
+		if map_camera:
+			map_camera.current = false
+		if camera:
+			camera.current = true
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+func _update_map_camera():
+	if not map_camera:
+		return
+	
+	# Position camera above player looking straight down
+	#var player_pos = global_position
+	map_camera.global_position = Vector3(0, 100, 0)
+	# Set rotation to look straight down (90 degrees on X axis)
+	map_camera.rotation_degrees = Vector3(-90, 0, 0)

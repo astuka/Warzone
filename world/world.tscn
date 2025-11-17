@@ -63,3 +63,5 @@ shadow_bias = 0.04
 
 [node name="EnemySpawner" type="Node3D" parent="."]
 script = ExtResource("8")
+
+[node name="MapCamera" type="Camera3D" parent="."]

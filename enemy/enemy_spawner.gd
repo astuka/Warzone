@@ -117,7 +117,7 @@ func _get_ally_spawn_position() -> Vector3:
 	var result = space_state.intersect_ray(query)
 	
 	if result:
-		spawn_pos = result.position + Vector3(0, 1.5, 0)  # Place NPC on ground/structure
+		spawn_pos = result.position + Vector3(0, 10, 0)  # Place NPC on ground/structure
 		return spawn_pos
 	
 	# If no ground found, spawn at default ground level
@@ -137,11 +137,11 @@ func _get_enemy_spawn_position() -> Vector3:
 	var result = space_state.intersect_ray(query)
 	
 	if result:
-		spawn_pos = result.position + Vector3(0, 1.5, 0)  # Place NPC on ground/structure
+		spawn_pos = result.position + Vector3(0, 10, 0)  # Place NPC on ground/structure
 		return spawn_pos
 	
 	# If no ground found, spawn at default ground level
-	return Vector3(spawn_pos.x, 1.5, spawn_pos.z)
+	return Vector3(spawn_pos.x, 10, spawn_pos.z)
 
 func _on_npc_entered_tree(npc: Node, spawn_pos: Vector3):
 	# Set position once NPC is in the tree
