@@ -3,7 +3,7 @@ class_name Pistol
 
 const PISTOL_DAMAGE = 25
 const PISTOL_RANGE = 50.0
-const PISTOL_FIRE_RATE = 1
+const PISTOL_FIRE_RATE = 0.25
 const BULLET_SPEED = 60.0
 const BLOCK_HITS_TO_DESTROY = 10
 
@@ -68,6 +68,9 @@ func _create_bullet(start_pos: Vector3, direction: Vector3, voxel_world: Node):
 	collision_shape.shape = sphere_shape
 	bullet.add_child(collision_shape)
 	bullet.collision_shape = collision_shape
+	
+	# Set start_position BEFORE adding to scene tree to avoid range calculation bug
+	bullet.start_position = start_pos
 	
 	# Add to scene FIRST, then set position (global_position requires node to be in tree)
 	var world = get_tree().get_first_node_in_group("world")

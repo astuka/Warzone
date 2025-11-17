@@ -28,6 +28,17 @@ func fire(raycast: RayCast3D, voxel_world: Node = null) -> bool:
 	if get_tree().paused:
 		return false
 	
+	# Check ammo - get owner (player or NPC)
+	var owner = get_parent()
+	if owner:
+		# Check if owner has ammo for this weapon type
+		if self is Pistol:
+			if owner.bullets <= 0:
+				return false
+		elif self is RocketLauncher:
+			if owner.rockets <= 0:
+				return false
+	
 	# Ensure timer exists and is properly configured
 	if not fire_timer:
 		if fire_rate > 0:
@@ -45,6 +56,13 @@ func fire(raycast: RayCast3D, voxel_world: Node = null) -> bool:
 			fire_timer.wait_time = fire_rate
 		fire_timer.start()
 		can_fire = false
+		
+		# Decrement ammo after successful fire
+		if owner:
+			if self is Pistol:
+				owner.bullets -= 1
+			elif self is RocketLauncher:
+				owner.rockets -= 1
 	
 	weapon_fired.emit()
 	return true

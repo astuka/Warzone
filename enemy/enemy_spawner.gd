@@ -4,8 +4,8 @@ class_name EnemySpawner
 const ALLY_SCENE = preload("res://npc/ally.tscn")
 const ENEMY_SCENE = preload("res://npc/enemy_npc.tscn")
 const SPAWN_DISTANCE = 20.0  # Distance from center to spawn NPCs
-const MAX_ALLIES = 30  # Maximum number of allies at once
-const MAX_ENEMIES = 32  # Maximum number of enemies at once
+const MAX_ALLIES = 15  # Maximum number of allies at once
+const MAX_ENEMIES = 16  # Maximum number of enemies at once
 
 # Map is split down the middle along X axis
 # Negative X side = Ally territory

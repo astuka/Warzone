@@ -26,8 +26,9 @@ func _ready():
 	collision_layer = 0  # Projectiles don't need to be detected
 	collision_mask = 0xFFFFF  # Detect everything
 	
-	# Set initial position
-	start_position = global_position
+	# Set initial position only if not already set (to avoid range calculation bug)
+	if start_position == Vector3.ZERO:
+		start_position = global_position
 	
 	# Rotate to face direction
 	if direction.length() > 0:

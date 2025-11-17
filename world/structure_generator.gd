@@ -5,6 +5,7 @@ extends Resource
 const STONE_BLOCK = 1  # Stone texture
 const AIR_BLOCK = 0
 const LADDER_BLOCK = 4  # Ladder block (climbable)
+const RESTOCK_BLOCK = 5  # Restocking station block
 
 # Structure generation probability
 const FENCE_PROBABILITY = 0.1
@@ -26,6 +27,15 @@ static func generate_structures(seed_value: int) -> Dictionary:
 	var boundary_walls = _generate_boundary_walls()
 	for pos in boundary_walls.keys():
 		structures[pos] = boundary_walls[pos]
+	
+	# Generate restocking stations on opposite sides of the map
+	var restocking_stations = _generate_restocking_stations()
+	for pos in restocking_stations.keys():
+		structures[pos] = restocking_stations[pos]
+	
+	# Initialize the restocking station manager
+	var restocking_station_script = load("res://world/restocking_station.gd")
+	restocking_station_script.initialize_stations()
 	
 	# Generate houses first (urban sprawl density with multi-level buildings) - 2x increased
 	# Track building bounding boxes to prevent fence intersections
@@ -98,6 +108,36 @@ static func _generate_boundary_walls() -> Dictionary:
 			walls[Vector3i(BOUNDARY_MIN, y, z)] = STONE_BLOCK
 	
 	return walls
+
+# Generate restocking stations (3x3x3 blocks) on opposite sides of the map
+static func _generate_restocking_stations() -> Dictionary:
+	var stations = {}
+	
+	# Station 1: On ally side (negative X, around -50)
+	var station1_x = -50
+	var station1_z = 0  # Center of map in Z
+	var station1_y = 0  # Ground level
+	
+	# Station 2: On enemy side (positive X, around +50)
+	var station2_x = 50
+	var station2_z = 0  # Center of map in Z
+	var station2_y = 0  # Ground level
+	
+	# Generate 3x3x3 blocks for each station
+	for station_data in [[station1_x, station1_y, station1_z], [station2_x, station2_y, station2_z]]:
+		var base_x = station_data[0]
+		var base_y = station_data[1]
+		var base_z = station_data[2]
+		
+		# Create 3x3x3 cube (use STONE_BLOCK for visual, track separately)
+		for x in range(3):
+			for y in range(3):
+				for z in range(3):
+					var pos = Vector3i(base_x + x, base_y + y, base_z + z)
+					# Use stone block for visual appearance
+					stations[pos] = RESTOCK_BLOCK
+	
+	return stations
 
 # Generate a simple fence (line of stone blocks)
 static func _generate_fence(rng: RandomNumberGenerator) -> Dictionary:

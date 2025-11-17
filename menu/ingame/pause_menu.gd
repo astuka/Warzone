@@ -8,6 +8,8 @@ extends Control
 @onready var voxel_world = $"../VoxelWorld"
 @onready var damage_overlay = $DamageOverlay
 @onready var hit_marker = $Crosshair/HitMarker
+@onready var ammo_display = $AmmoDisplay
+@onready var restock_prompt = $RestockPrompt
 
 
 func _ready():
@@ -85,3 +87,26 @@ func show_damage_effect():
 		damage_tween.tween_property(damage_overlay, "color:a", 0.3, 0.1)
 		# Then fade out back to transparent
 		damage_tween.tween_property(damage_overlay, "color:a", 0.0, 0.2)
+
+func update_ammo_display(weapon_index: int, bullets: int, rockets: int, blocks: int):
+	# Update ammo display based on current weapon
+	if not ammo_display:
+		return
+	
+	var text: String
+	if weapon_index == 0:
+		# Pistol selected
+		text = "Bullets: %d / %d" % [bullets, 50]
+	elif weapon_index == 1:
+		# Rocket launcher selected
+		text = "Rockets: %d / %d" % [rockets, 5]
+	else:
+		# Blocks selected
+		text = "Blocks: %d / %d" % [blocks, 15]
+	
+	ammo_display.text = text
+
+func show_restock_prompt(show: bool):
+	# Show or hide the restock prompt
+	if restock_prompt:
+		restock_prompt.visible = show

@@ -24,6 +24,14 @@ var lean_amount: float = 0.0  # -1.0 to 1.0 (left to right)
 var is_iron_sights: bool = false
 var is_map_visible: bool = false
 
+# Ammo tracking
+const DEFAULT_BULLETS = 50
+const DEFAULT_ROCKETS = 5
+const DEFAULT_BLOCKS = 15
+var bullets: int = DEFAULT_BULLETS
+var rockets: int = DEFAULT_ROCKETS
+var blocks: int = DEFAULT_BLOCKS
+
 @onready var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 @onready var head = $Head
@@ -36,6 +44,8 @@ var is_map_visible: bool = false
 @onready var health_bar = $"../PauseMenu/HealthBar"
 @onready var pause_menu = $"../PauseMenu"
 @onready var map_camera = $"../MapCamera"
+
+var near_restocking_station: bool = false
 
 const FOV_NORMAL = 74.0
 const FOV_IRON_SIGHTS = 55.0  # Zoomed in FOV for iron sights
@@ -64,6 +74,7 @@ func _ready():
 	current_weapon_index = 0
 	_update_weapon_display()
 	_update_health_bar()
+	_update_ammo_display()
 	
 	# Fix initial spawn position to be on top of terrain
 	call_deferred("_fix_initial_spawn")
@@ -106,12 +117,15 @@ func _process(_delta):
 	if Input.is_action_just_pressed(&"weapon_1"):
 		current_weapon_index = 0
 		_update_weapon_display()
+		_update_ammo_display()
 	elif Input.is_action_just_pressed(&"weapon_2"):
 		current_weapon_index = 1
 		_update_weapon_display()
+		_update_ammo_display()
 	elif Input.is_action_just_pressed(&"weapon_3"):
 		current_weapon_index = 2
 		_update_weapon_display()
+		_update_ammo_display()
 	
 	current_weapon_index = clamp(current_weapon_index, 0, 2)  # Max index is 2 (0=pistol, 1=rocket, 2=blocks)
 	
@@ -120,12 +134,15 @@ func _process(_delta):
 		if current_weapon_index == 2:
 			# Block placement mode
 			_place_block()
+			_update_ammo_display()
 		elif weapons.size() > current_weapon_index:
 			var current_weapon = weapons[current_weapon_index]
 			# Update raycast range for weapon
 			raycast.target_position = Vector3(0, 0, -current_weapon.range_distance)
 			raycast.force_raycast_update()
-			current_weapon.fire(raycast, voxel_world)
+			if current_weapon.fire(raycast, voxel_world):
+				# Only update display if weapon actually fired (has ammo)
+				_update_ammo_display()
 			# Restore original range
 			raycast.target_position = Vector3(0, 0, -4)
 
@@ -146,15 +163,47 @@ func _physics_process(delta):
 	head.transform.origin.y = lerpf(head.transform.origin.y, EYE_HEIGHT_CROUCH if crouching else EYE_HEIGHT_STAND, 16 * delta)
 	
 	# Leaning (Q/E keys) - Fixed: Q leans left, E leans right
-	var lean_left_pressed = Input.is_action_pressed(&"lean_left")
-	var lean_right_pressed = Input.is_action_pressed(&"lean_right")
 	var target_lean: float = 0.0
-	if lean_left_pressed and not lean_right_pressed:
-		target_lean = 1.0  # Positive for left lean (roll right)
-	elif lean_right_pressed and not lean_left_pressed:
-		target_lean = -1.0  # Negative for right lean (roll left)
+	
+	# Check if near a restocking station
+	near_restocking_station = RestockingStation.is_near_station(global_position, 2.5)
+	if pause_menu and pause_menu.has_method("show_restock_prompt"):
+		pause_menu.show_restock_prompt(near_restocking_station)
+	
+	# Update ammo display periodically to ensure it stays current
+	_update_ammo_display()
+	
+	# Check for restocking station interaction (E key) - priority over lean
+	var e_key_pressed = Input.is_key_pressed(KEY_E)
+	if e_key_pressed:
+		# Check if near a restocking station
+		if near_restocking_station:
+			RestockingStation.restock_entity(self)
+			# Update ammo display after restocking
+			if pause_menu and pause_menu.has_method("update_ammo_display"):
+				pause_menu.update_ammo_display(current_weapon_index, bullets, rockets, blocks)
+			# Don't lean if interacting
+			target_lean = 0.0
+		else:
+			# Normal lean behavior
+			var lean_left_pressed = Input.is_action_pressed(&"lean_left")
+			var lean_right_pressed = Input.is_action_pressed(&"lean_right")
+			if lean_left_pressed and not lean_right_pressed:
+				target_lean = 1.0  # Positive for left lean (roll right)
+			elif lean_right_pressed and not lean_left_pressed:
+				target_lean = -1.0  # Negative for right lean (roll left)
+			else:
+				target_lean = 0.0
 	else:
-		target_lean = 0.0
+		# Normal lean behavior when E is not pressed
+		var lean_left_pressed = Input.is_action_pressed(&"lean_left")
+		var lean_right_pressed = Input.is_action_pressed(&"lean_right")
+		if lean_left_pressed and not lean_right_pressed:
+			target_lean = 1.0  # Positive for left lean (roll right)
+		elif lean_right_pressed and not lean_left_pressed:
+			target_lean = -1.0  # Negative for right lean (roll left)
+		else:
+			target_lean = 0.0
 	
 	lean_amount = lerpf(lean_amount, target_lean, LEAN_SPEED * delta)
 	
@@ -299,6 +348,12 @@ func _respawn():
 	health = MAX_HEALTH
 	_update_health_bar()
 	
+	# Reset ammo to default values
+	bullets = DEFAULT_BULLETS
+	rockets = DEFAULT_ROCKETS
+	blocks = DEFAULT_BLOCKS
+	_update_ammo_display()
+	
 	# Find a valid spawn position on ally side
 	var spawn_pos = _find_spawn_position()
 	global_position = spawn_pos
@@ -306,6 +361,11 @@ func _respawn():
 func _update_health_bar():
 	if health_bar:
 		health_bar.set_health(health, MAX_HEALTH)
+
+func _update_ammo_display():
+	# Update the ammo display in the pause menu
+	if pause_menu and pause_menu.has_method("update_ammo_display"):
+		pause_menu.update_ammo_display(current_weapon_index, bullets, rockets, blocks)
 
 func _fix_initial_spawn():
 	# Fix the initial spawn position if player spawned inside terrain
@@ -362,6 +422,10 @@ func _place_block():
 	if not voxel_world:
 		return
 	
+	# Check if player has blocks available
+	if blocks <= 0:
+		return
+	
 	# Update raycast to check for block placement
 	raycast.target_position = Vector3(0, 0, -BLOCK_PLACEMENT_RANGE)
 	raycast.force_raycast_update()
@@ -383,6 +447,7 @@ func _place_block():
 		var existing_block = voxel_world.get_block_global_position(block_pos)
 		if existing_block == 0:  # Only place if position is empty
 			voxel_world.set_block_global_position(block_pos, STONE_BLOCK)
+			blocks -= 1  # Decrement block count
 	
 	# Restore original raycast range
 	raycast.target_position = Vector3(0, 0, -4)

@@ -73,6 +73,9 @@ func _create_rocket(start_pos: Vector3, direction: Vector3, voxel_world: Node):
 	rocket.add_child(collision_shape)
 	rocket.collision_shape = collision_shape
 	
+	# Set start_position BEFORE adding to scene tree to avoid range calculation bug
+	rocket.start_position = start_pos
+	
 	# Add to scene FIRST, then set position (global_position requires node to be in tree)
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
