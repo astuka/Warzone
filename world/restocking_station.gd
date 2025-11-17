@@ -41,6 +41,7 @@ static func get_nearest_station_center(position: Vector3) -> Vector3:
 
 static func is_near_station(position: Vector3, distance_threshold: float = 2.0) -> bool:
 	# Check if position is near any restocking station that still exists
+	# Use horizontal distance (ignore Y) for more lenient checking
 	var pos_v3i = Vector3i(position.floor())
 	var voxel_world = Engine.get_main_loop().current_scene.get_node_or_null("VoxelWorld")
 	if not voxel_world:
@@ -50,7 +51,18 @@ static func is_near_station(position: Vector3, distance_threshold: float = 2.0) 
 		# Check if station block still exists (not destroyed)
 		var block_id = voxel_world.get_block_global_position(station_pos)
 		if block_id != 0:  # Block exists (not air)
-			if Vector3(pos_v3i).distance_to(Vector3(station_pos)) <= distance_threshold:
+			# Calculate horizontal distance (ignore Y coordinate differences)
+			var pos_horizontal = Vector2(pos_v3i.x, pos_v3i.z)
+			var station_horizontal = Vector2(station_pos.x, station_pos.z)
+			var horizontal_distance = pos_horizontal.distance_to(station_horizontal)
+			
+			# Also check full 3D distance as fallback (in case Y is close)
+			var full_distance = Vector3(pos_v3i).distance_to(Vector3(station_pos))
+			
+			# Use the smaller of the two distances (more lenient)
+			var effective_distance = min(horizontal_distance, full_distance)
+			
+			if effective_distance <= distance_threshold:
 				return true
 	return false
 

@@ -10,6 +10,7 @@ extends Control
 @onready var hit_marker = $Crosshair/HitMarker
 @onready var ammo_display = $AmmoDisplay
 @onready var restock_prompt = $RestockPrompt
+@onready var npc_reset_prompt = $NPCResetPrompt
 
 
 func _ready():
@@ -110,3 +111,8 @@ func show_restock_prompt(show: bool):
 	# Show or hide the restock prompt
 	if restock_prompt:
 		restock_prompt.visible = show
+
+func show_npc_reset_prompt(show: bool):
+	# Show or hide the NPC reset prompt
+	if npc_reset_prompt:
+		npc_reset_prompt.visible = show

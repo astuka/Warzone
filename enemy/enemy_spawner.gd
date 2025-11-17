@@ -27,6 +27,9 @@ var spawn_interval: float = 5.0  # Spawn a new NPC every 5 seconds
 @onready var voxel_world = get_tree().get_first_node_in_group("voxel_world")
 
 func _ready():
+	# Add to group so player can find it
+	add_to_group("enemy_spawner")
+	
 	if not player:
 		# Try to find player in the scene
 		player = get_tree().get_first_node_in_group("Player")

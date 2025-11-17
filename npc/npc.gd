@@ -41,14 +41,7 @@ var roam_interval: float = 3.0  # Pick new roam target every 3 seconds
 var roam_range: float = 15.0  # Maximum distance to roam from spawn position
 var spawn_position: Vector3 = Vector3.ZERO  # Remember where NPC spawned
 
-# Stuck detection and avoidance (only used when restocking)
-var last_position: Vector3 = Vector3.ZERO  # Track position for stuck detection
-var stuck_timer: float = 0.0  # How long we've been stuck
-var stuck_threshold: float = 1.0  # Seconds before considered stuck (increased to be less sensitive)
-var unstuck_direction: Vector3 = Vector3.ZERO  # Direction to move when unstuck
-var unstuck_timer: float = 0.0  # Timer for unstuck movement
-var unstuck_duration: float = 1.5  # How long to move in unstuck direction
-var is_unstucking: bool = false  # Whether we're currently trying to get unstuck
+# Jump cooldown for restocking
 var jump_cooldown: float = 0.0  # Cooldown to prevent constant jumping
 
 # Crowding avoidance
@@ -116,9 +109,6 @@ func _ready():
 	
 	# Initialize roaming - set spawn position and pick first roam target
 	call_deferred("_initialize_roaming")
-	
-	# Initialize last position for stuck detection
-	last_position = global_position
 
 func _initialize_weapons():
 	# Create pistol and rocket launcher
@@ -165,33 +155,39 @@ func _pick_new_roam_target():
 	# Reset roam timer
 	roam_timer = 0.0
 
-func _move_towards_roam_target(delta):
+func _handle_roaming(delta):
+	# Priority 4: Roaming around to find enemies
+	
 	# If spawn position wasn't set yet, set it now
 	if spawn_position == Vector3.ZERO:
 		spawn_position = global_position
 	
-	if roam_target_position == Vector3.ZERO:
-		_pick_new_roam_target()
-		return
+	# Update roam timer
+	roam_timer += delta
 	
+	# Pick a new roam target periodically or if we don't have one
+	if roam_timer >= roam_interval or roam_target_position == Vector3.ZERO:
+		_pick_new_roam_target()
+		roam_timer = 0.0
+	
+	# Move towards roam target
 	var direction = (roam_target_position - global_position)
-	direction.y = 0  # Don't move vertically
+	direction.y = 0
 	var distance = direction.length()
 	
-	# If we've reached the roam target (or are close enough), pick a new one
+	# If we've reached the roam target, pick a new one
 	if distance < 2.0:
 		_pick_new_roam_target()
 		return
 	
 	direction = direction.normalized()
 	
-	# Move towards roam target at a slower speed than combat movement
-	velocity.x = direction.x * MOVE_SPEED * 0.6  # 60% of combat speed
+	# Move towards roam target at slower speed
+	velocity.x = direction.x * MOVE_SPEED * 0.6
 	velocity.z = direction.z * MOVE_SPEED * 0.6
 	
 	# Face the direction we're moving
-	if direction.length() > 0:
-		look_at(global_position + direction, Vector3.UP)
+	look_at(global_position + direction, Vector3.UP)
 
 func _physics_process(delta):
 	# Don't do anything if game is paused
@@ -210,61 +206,37 @@ func _physics_process(delta):
 		if velocity.y < 0:
 			velocity.y = 0
 	
-	# Check if NPC needs to restock (out of ammo for current weapon)
+	# PRIORITY 1: Restocking if ammo == 0
 	_check_restock_needed()
-	
-	# If NPC needs to restock, prioritize going to restocking station
 	if needs_restock:
-		# Check if stuck (only when restocking)
-		_check_stuck(delta)
+		# Reset velocity first to ensure clean state
+		velocity.x = 0
+		velocity.z = 0
 		
-		# If we're trying to get unstuck, use unstuck logic
-		if is_unstucking:
-			_handle_unstuck(delta)
-		else:
-			_move_towards_restocking_station(delta)
-			# Check if we should jump over obstacles when moving to restock
-			if is_on_floor() and jump_cooldown <= 0:
-				_check_and_jump_restocking()
+		_handle_restocking(delta)
 		
-		# Check if we've reached the station
-		if RestockingStation.is_near_station(global_position, 2.0):
-			RestockingStation.restock_entity(self)
-			needs_restock = false
-			restocking_station_target = Vector3.ZERO
-			# Reset unstuck state
-			is_unstucking = false
-			stuck_timer = 0.0
-	else:
-		# Reset unstuck state when not restocking
-		is_unstucking = false
-		stuck_timer = 0.0
-		unstuck_timer = 0.0
-		unstuck_direction = Vector3.ZERO
+		# Apply minimal crowding avoidance during restocking (don't let it override direction)
+		_apply_crowding_avoidance_restocking(delta)
 		
-		# AI: Find and chase target
-		_find_target()
-		
-		# Move towards target
-		if target and is_instance_valid(target):
-			_move_towards_target(delta)
-			_face_target()
-			_try_attack()
-		else:
-			# No target, roam around
-			roam_timer += delta
-			# Pick a new roam target periodically
-			if roam_timer >= roam_interval:
-				_pick_new_roam_target()
-			_move_towards_roam_target(delta)
+		move_and_slide()
+		return
 	
-	# Apply crowding avoidance (repel from nearby NPCs)
+	# PRIORITY 2: Find and shoot enemies
+	_find_target()
+	if target and is_instance_valid(target):
+		_handle_combat(delta)
+		# Apply crowding avoidance
+		_apply_crowding_avoidance(delta)
+		move_and_slide()
+		return
+	
+	# PRIORITY 3: Roaming (no enemies found)
+	_handle_roaming(delta)
+	
+	# Apply crowding avoidance
 	_apply_crowding_avoidance(delta)
 	
 	move_and_slide()
-	
-	# Update last position for stuck detection
-	last_position = global_position
 
 func _find_target():
 	# Find closest enemy based on NPC type
@@ -305,7 +277,7 @@ func _find_target():
 	
 	target = closest_target
 
-func _count_blocks_in_direction(position: Vector3, direction: Vector3, max_distance: float = 5.0) -> int:
+func _count_blocks_in_direction(check_position: Vector3, direction: Vector3, max_distance: float = 5.0) -> int:
 	# Count how many blocks are in front of a position in a given direction
 	# Returns the number of blocks found
 	if not voxel_world:
@@ -316,7 +288,7 @@ func _count_blocks_in_direction(position: Vector3, direction: Vector3, max_dista
 	var max_checks = int(max_distance / check_distance)
 	
 	# Start checking from slightly in front of the position (eye level)
-	var start_pos = position + Vector3(0, 1.5, 0)  # Eye level
+	var start_pos = check_position + Vector3(0, 1.5, 0)  # Eye level
 	var normalized_dir = direction.normalized()
 	
 	for i in range(1, max_checks + 1):
@@ -408,49 +380,63 @@ func _find_better_position_towards_target(target_pos: Vector3) -> Vector3:
 	
 	return best_position
 
-func _move_towards_target(delta):
+func _handle_combat(_delta):
+	# Priority 2: Find and shoot enemies
+	# Priority 3: Find cover (1 block, facing enemy)
+	
 	if not target or not is_instance_valid(target):
 		return
 	
 	var direction = (target.global_position - global_position)
-	direction.y = 0  # Don't move vertically
+	direction.y = 0
 	var distance = direction.length()
 	
-	# Stop moving if we're within attack range
+	# Face the target
+	_face_target()
+	
+	# If within attack range, try to find cover and shoot
 	if distance <= attack_range:
-		# Check if current position has good cover
+		# Priority 3: Find cover (1 block, facing enemy)
 		var dir_to_target = direction.normalized()
 		var blocks_in_view = _count_blocks_in_direction(global_position, dir_to_target, 5.0)
 		
-		# If view is blocked (3+ blocks), try to find a better position
+		# If we have good cover (1 block) or clear view (0 blocks), stay and shoot
+		if blocks_in_view <= 1:
+			velocity.x = 0
+			velocity.z = 0
+			_try_attack()
+			return
+		
+		# If view is blocked (3+ blocks), try to find better position with cover
 		if blocks_in_view >= 3:
 			var better_pos = _find_better_position_towards_target(target.global_position)
 			var move_dir = (better_pos - global_position)
 			move_dir.y = 0
-			if move_dir.length() > 1.0:  # Only move if there's a significant difference
+			if move_dir.length() > 1.0:
 				move_dir = move_dir.normalized()
 				velocity.x = move_dir.x * MOVE_SPEED
 				velocity.z = move_dir.z * MOVE_SPEED
 				return
 		
+		# Otherwise, stay and shoot
 		velocity.x = 0
 		velocity.z = 0
+		_try_attack()
 		return
 	
+	# Move towards target, trying to find cover along the way
 	direction = direction.normalized()
-	
-	# Try to find a better position with cover
 	var preferred_position = _find_better_position_towards_target(target.global_position)
 	var move_direction = (preferred_position - global_position)
 	move_direction.y = 0
 	
-	# If the preferred position is significantly different, use it
+	# Move towards preferred position (which considers cover)
 	if move_direction.length() > 1.0:
 		move_direction = move_direction.normalized()
 		velocity.x = move_direction.x * MOVE_SPEED
 		velocity.z = move_direction.z * MOVE_SPEED
 	else:
-		# Otherwise, move directly towards target
+		# Move directly towards target
 		velocity.x = direction.x * MOVE_SPEED
 		velocity.z = direction.z * MOVE_SPEED
 
@@ -617,98 +603,100 @@ func _check_restock_needed():
 		# Has ammo, no need to restock
 		needs_restock = false
 
-func _move_towards_restocking_station(delta):
+func _handle_restocking(delta):
+	# Priority 1: Go to restocking station if ammo == 0
+	# Automatically jump at intervals to avoid getting stuck
+	# IMPORTANT: This completely overrides roaming - clear roam state
+	
+	# Clear any roaming state to prevent interference
+	roam_target_position = Vector3.ZERO
+	roam_timer = 0.0
+	
+	# Get restocking station target
 	if restocking_station_target == Vector3.ZERO:
 		restocking_station_target = RestockingStation.get_nearest_station_center(global_position)
 	
-	var direction = (restocking_station_target - global_position)
-	direction.y = 0  # Don't move vertically
-	var distance = direction.length()
+	# Check if we've reached the station (use more lenient distance check)
+	# Check both the station blocks and the center position for better reliability
+	var near_station = RestockingStation.is_near_station(global_position, 4.0)  # Increased from 2.0 to 4.0
 	
-	# If we've reached the station (or are close enough), stop
-	if distance < 2.0:
+	# Also check distance to station center as fallback
+	if not near_station and restocking_station_target != Vector3.ZERO:
+		var distance_to_center = global_position.distance_to(restocking_station_target)
+		if distance_to_center <= 4.0:  # Within 4 units of center
+			near_station = true
+	
+	if near_station:
+		RestockingStation.restock_entity(self)
+		needs_restock = false
+		restocking_station_target = Vector3.ZERO
+		# Reset velocity to ensure clean state
 		velocity.x = 0
 		velocity.z = 0
 		return
 	
+	# Move towards restocking station
+	var direction = (restocking_station_target - global_position)
+	direction.y = 0
+	var distance = direction.length()
+	
+	# Stop moving if we're close enough (within 4 units)
+	if distance < 4.0:
+		velocity.x = 0
+		velocity.z = 0
+		# Still check if we can restock (might be close enough now)
+		return
+	
 	direction = direction.normalized()
 	
-	# Move towards restocking station
+	# Move towards station at FULL speed (not slowed by roaming)
 	velocity.x = direction.x * MOVE_SPEED
 	velocity.z = direction.z * MOVE_SPEED
 	
 	# Face the direction we're moving
-	if direction.length() > 0:
-		look_at(global_position + direction, Vector3.UP)
-
-func _check_and_jump_restocking():
-	# Check if there's an obstacle ahead that we should jump over (only when restocking)
-	if not is_on_floor() or jump_cooldown > 0:
-		return
+	look_at(global_position + direction, Vector3.UP)
 	
-	# Get forward direction (where we're trying to move)
-	var forward_dir = Vector3.ZERO
-	if abs(velocity.x) > 0.1 or abs(velocity.z) > 0.1:
-		forward_dir = Vector3(velocity.x, 0, velocity.z).normalized()
-	else:
-		return  # Not moving, don't jump
-	
-	# Check if there's a block in front that we should jump over
-	if voxel_world:
-		# Check at knee level (for low obstacles like fences)
-		var check_pos = global_position + Vector3(0, 0.5, 0) + forward_dir * 0.6
-		var block_pos = Vector3i(check_pos.floor())
-		var block_id = voxel_world.get_block_global_position(block_pos)
+	# Automatically jump at intervals to avoid getting stuck
+	if is_on_floor() and jump_cooldown <= 0:
+		# Jump periodically (every 1 second) when moving to restock
+		if not has_meta("last_restock_jump_time"):
+			set_meta("last_restock_jump_time", 0.0)
 		
-		# If there's a block in front, jump
-		if block_id != 0:
+		var time_since_last_jump = get_meta("last_restock_jump_time")
+		if time_since_last_jump >= 1.0:
 			velocity.y = JUMP_VELOCITY
-			jump_cooldown = 0.5  # Prevent jumping again for 0.5 seconds
-			return
+			jump_cooldown = 0.5
+			set_meta("last_restock_jump_time", 0.0)
+		else:
+			set_meta("last_restock_jump_time", time_since_last_jump + delta)
 
-func _check_stuck(delta):
-	# Check if NPC is stuck (only called when restocking)
-	# Only check if we're actually trying to move (have a target destination)
-	if restocking_station_target == Vector3.ZERO:
-		stuck_timer = 0.0
-		return
-	
-	var horizontal_velocity = Vector2(velocity.x, velocity.z).length()
-	var position_change = Vector2(global_position.x - last_position.x, global_position.z - last_position.z).length()
-	
-	# If we're trying to move (velocity > threshold) but not actually moving (position change < threshold), we might be stuck
-	# Use a more lenient threshold for position change to avoid false positives
-	if horizontal_velocity > 0.5 and position_change < 0.05:
-		stuck_timer += delta
-	else:
-		# Reset stuck timer if we're moving
-		stuck_timer = 0.0
-		unstuck_timer = 0.0
-		is_unstucking = false
-		unstuck_direction = Vector3.ZERO
-	
-	# If stuck for too long, mark as unstucking
-	if stuck_timer >= stuck_threshold:
-		is_unstucking = true
 
-func _handle_unstuck(delta):
-	# Try to get unstuck by jumping (good for fences, craters)
-	# Continue moving towards restocking station, just add jumping
-	unstuck_timer += delta
+func _apply_crowding_avoidance_restocking(delta):
+	# Minimal crowding avoidance during restocking - don't override movement direction
+	# Only apply very light repulsion to prevent complete overlap
+	var all_npcs = get_tree().get_nodes_in_group("npcs")
+	var repel_force = Vector3.ZERO
 	
-	# Try jumping periodically to get over obstacles
-	if is_on_floor() and unstuck_timer >= 0.5 and jump_cooldown <= 0:
-		velocity.y = JUMP_VELOCITY
-		jump_cooldown = 0.5  # Prevent jumping again for 0.5 seconds
-		unstuck_timer = 0.0  # Reset timer for next jump attempt
+	for npc in all_npcs:
+		if npc == self or not is_instance_valid(npc):
+			continue
+		
+		# Only avoid NPCs of the same type
+		if npc is NPC and (npc as NPC).npc_type == npc_type:
+			var distance = global_position.distance_to(npc.global_position)
+			
+			# Only apply very light repulsion if extremely close (within 1 unit)
+			if distance < 1.0 and distance > 0.1:
+				var direction_away = (global_position - npc.global_position).normalized()
+				var strength = 1.0  # Very light repulsion
+				repel_force += direction_away * strength
 	
-	# Continue normal movement towards restocking station
-	_move_towards_restocking_station(delta)
-	
-	# Reset stuck state if we've been trying for a while (might have gotten unstuck)
-	if unstuck_timer >= unstuck_duration:
-		stuck_timer = 0.0
-		is_unstucking = false
+	# Apply minimal repel force (much weaker than normal)
+	if repel_force.length() > 0.1:
+		repel_force.y = 0
+		# Only apply a very small adjustment, don't override main movement
+		velocity.x += repel_force.x * delta * 0.5  # Much weaker than normal
+		velocity.z += repel_force.z * delta * 0.5
 
 func _apply_crowding_avoidance(delta):
 	# Repel from nearby NPCs of the same type to avoid crowding

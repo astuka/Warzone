@@ -1,8 +1,6 @@
 res://default_bus_layout.tres
 res://menu/main/main_menu.tscn
 res://world/world.tscn
-res://player/player.gd
-res://enemy/enemy_spawner.gd
-res://weapons/pistol.gd
-res://world/structure_generator.gd
 res://menu/ingame/pause_menu.tscn
+res://enemy/enemy_spawner.gd
+res://npc/npc.gd

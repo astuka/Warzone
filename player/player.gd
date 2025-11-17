@@ -167,16 +167,38 @@ func _physics_process(delta):
 	
 	# Check if near a restocking station
 	near_restocking_station = RestockingStation.is_near_station(global_position, 2.5)
-	if pause_menu and pause_menu.has_method("show_restock_prompt"):
-		pause_menu.show_restock_prompt(near_restocking_station)
+	
+	# Check if near a friendly NPC to reset
+	var nearby_ally = _get_nearby_friendly_npc()
+	var near_friendly_npc = nearby_ally != null
+	
+	# Show appropriate prompts
+	if pause_menu:
+		if pause_menu.has_method("show_restock_prompt"):
+			# Only show restock prompt if not near NPC (NPC reset takes priority)
+			pause_menu.show_restock_prompt(near_restocking_station and not near_friendly_npc)
+		if pause_menu.has_method("show_npc_reset_prompt"):
+			pause_menu.show_npc_reset_prompt(near_friendly_npc)
 	
 	# Update ammo display periodically to ensure it stays current
 	_update_ammo_display()
 	
-	# Check for restocking station interaction (E key) - priority over lean
-	var e_key_pressed = Input.is_key_pressed(KEY_E)
-	if e_key_pressed:
-		# Check if near a restocking station
+	# Check for interactions (F key) - priority over lean
+	var f_key_pressed = Input.is_key_pressed(KEY_F)
+	var f_key_just_pressed = Input.is_action_just_pressed(&"interact") or (f_key_pressed and not has_meta("f_key_was_pressed"))
+	
+	if f_key_pressed:
+		# First check if near a friendly NPC to reset (temporary solution for stuck NPCs)
+		# Only reset on just_pressed to avoid multiple resets
+		if f_key_just_pressed and near_friendly_npc:
+			_reset_npc(nearby_ally)
+			# Don't lean if interacting
+			target_lean = 0.0
+			set_meta("f_key_was_pressed", true)
+			# Skip rest of F key logic
+			return
+		
+		# Check if near a restocking station (works with held key)
 		if near_restocking_station:
 			RestockingStation.restock_entity(self)
 			# Update ammo display after restocking
@@ -184,6 +206,7 @@ func _physics_process(delta):
 				pause_menu.update_ammo_display(current_weapon_index, bullets, rockets, blocks)
 			# Don't lean if interacting
 			target_lean = 0.0
+			set_meta("f_key_was_pressed", true)
 		else:
 			# Normal lean behavior
 			var lean_left_pressed = Input.is_action_pressed(&"lean_left")
@@ -194,8 +217,13 @@ func _physics_process(delta):
 				target_lean = -1.0  # Negative for right lean (roll left)
 			else:
 				target_lean = 0.0
+			set_meta("f_key_was_pressed", true)
 	else:
-		# Normal lean behavior when E is not pressed
+		# F key not pressed - clear the flag
+		if has_meta("f_key_was_pressed"):
+			remove_meta("f_key_was_pressed")
+		
+		# Normal lean behavior when F is not pressed
 		var lean_left_pressed = Input.is_action_pressed(&"lean_left")
 		var lean_right_pressed = Input.is_action_pressed(&"lean_right")
 		if lean_left_pressed and not lean_right_pressed:
@@ -480,3 +508,52 @@ func _update_map_camera():
 	map_camera.global_position = Vector3(0, 100, 0)
 	# Set rotation to look straight down (90 degrees on X axis)
 	map_camera.rotation_degrees = Vector3(-90, 0, 0)
+
+func _get_nearby_friendly_npc() -> NPC:
+	# Check if player is near a friendly NPC (within 3 units)
+	var all_npcs = get_tree().get_nodes_in_group("npcs")
+	var closest_ally: NPC = null
+	var closest_distance: float = 3.0  # Interaction range
+	
+	for npc in all_npcs:
+		if not is_instance_valid(npc) or not npc is NPC:
+			continue
+		
+		# Only check allies (friendly NPCs)
+		if (npc as NPC).npc_type == NPC.NPCType.ALLY:
+			var distance = global_position.distance_to(npc.global_position)
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_ally = npc as NPC
+	
+	return closest_ally
+
+func _reset_npc(npc: NPC):
+	# Reset a stuck NPC by deleting it and respawning a new one
+	if not npc or not is_instance_valid(npc):
+		return
+	
+	# Get the spawner
+	var spawner = get_tree().get_first_node_in_group("enemy_spawner")
+	if not spawner:
+		# Try alternative ways to find spawner
+		spawner = get_tree().current_scene.get_node_or_null("EnemySpawner")
+	
+	if spawner and spawner is EnemySpawner:
+		# Store NPC type before deleting
+		var npc_type = npc.npc_type
+		
+		# Remove from spawner's arrays
+		if npc_type == NPC.NPCType.ALLY:
+			(spawner as EnemySpawner).allies.erase(npc)
+		else:
+			(spawner as EnemySpawner).enemies.erase(npc)
+		
+		# Delete the NPC
+		npc.queue_free()
+		
+		# Spawn a new one of the same type
+		if npc_type == NPC.NPCType.ALLY:
+			(spawner as EnemySpawner).spawn_ally()
+		else:
+			(spawner as EnemySpawner).spawn_enemy()
