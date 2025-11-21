@@ -102,6 +102,9 @@ func _on_projectile_hit(projectile: Projectile, target: Node, hit_position: Vect
 	var voxel_world = projectile.get_meta("voxel_world", null)
 	var weapon_owner = get_parent()
 	
+	# Calculate impact direction for physics
+	var impact_direction = projectile.direction if projectile else Vector3.ZERO
+	
 	# Damage NPCs in explosion radius (only if not same team)
 	if target and target is NPC:
 		var npc = target as NPC
@@ -112,7 +115,9 @@ func _on_projectile_hit(projectile: Projectile, target: Node, hit_position: Vect
 		elif weapon_owner and weapon_owner.name == "Player" and npc.npc_type == NPC.NPCType.ALLY:
 			pass  # Skip direct hit
 		else:
-			npc.take_damage(damage)
+			# Apply rocket force (scaled for dramatic effect)
+			var rocket_force = impact_direction * 15.0
+			npc.take_damage(damage, rocket_force)
 			# Show hit marker if player hit an enemy
 			if weapon_owner and weapon_owner.name == "Player" and npc.npc_type == NPC.NPCType.ENEMY:
 				_show_hit_marker()
@@ -130,11 +135,19 @@ func _on_projectile_hit(projectile: Projectile, target: Node, hit_position: Vect
 		_destroy_terrain_around_point(hit_position, voxel_world)
 	
 	# Also check for NPCs and player near the explosion
-	_damage_npcs_in_radius(hit_position, EXPLOSION_RADIUS)
+	_damage_npcs_in_radius(hit_position, EXPLOSION_RADIUS, impact_direction)
 	_damage_player_in_radius(hit_position, EXPLOSION_RADIUS)
 	
 	# Create explosion visual effect
 	_create_explosion_effect(hit_position)
+	
+	# Spawn smoke at impact location
+	SmokeManager.spawn_smoke(hit_position)
+	
+	# Trigger screen shake if player is nearby
+	var player = get_tree().get_first_node_in_group("player")
+	if player:
+		CameraShake.trigger_shake(hit_position, player.global_position)
 
 
 func _destroy_terrain_around_point(point: Vector3, voxel_world: Node):
@@ -196,7 +209,7 @@ func _destroy_blocks_batch(blocks_to_destroy: Array, voxel_world: Node):
 			await get_tree().process_frame
 
 
-func _damage_npcs_in_radius(point: Vector3, radius: float):
+func _damage_npcs_in_radius(point: Vector3, radius: float, rocket_direction: Vector3):
 	# Find all NPCs in the scene and damage those within radius
 	# Use groups instead of recursive search for better performance
 	var weapon_owner = get_parent()
@@ -230,7 +243,16 @@ func _damage_npcs_in_radius(point: Vector3, radius: float):
 		var offset = point - npc.global_position
 		var distance_squared = offset.x * offset.x + offset.y * offset.y + offset.z * offset.z
 		if distance_squared <= radius_squared:
-			npc.take_damage(damage)
+			# Calculate force direction (away from explosion point)
+			var force_direction = (npc.global_position - point).normalized()
+			# Add upward component for dramatic effect
+			force_direction.y += 0.5
+			force_direction = force_direction.normalized()
+			# Scale force based on distance (closer = more force)
+			var distance_factor = 1.0 - (sqrt(distance_squared) / radius)
+			var explosion_force = force_direction * 20.0 * distance_factor
+			
+			npc.take_damage(damage, explosion_force)
 			# Show hit marker if player hit an enemy
 			if weapon_owner and weapon_owner.name == "Player" and npc is NPC and (npc as NPC).npc_type == NPC.NPCType.ENEMY:
 				_show_hit_marker()

@@ -86,6 +86,9 @@ func _on_projectile_hit(projectile: Projectile, target: Node, hit_position: Vect
 	# Get weapon owner
 	var weapon_owner = get_parent()
 	
+	# Calculate impact direction for physics
+	var impact_direction = projectile.direction if projectile else Vector3.ZERO
+	
 	# Check if we hit an NPC
 	if target and target is NPC:
 		var npc = target as NPC
@@ -95,7 +98,9 @@ func _on_projectile_hit(projectile: Projectile, target: Node, hit_position: Vect
 		# Player's weapons don't damage allies
 		if weapon_owner and weapon_owner.name == "Player" and npc.npc_type == NPC.NPCType.ALLY:
 			return
-		npc.take_damage(damage)
+		# Apply bullet force (scaled for physics effect)
+		var bullet_force = impact_direction * 2.0
+		npc.take_damage(damage, bullet_force)
 		# Show hit marker if player hit an enemy
 		if weapon_owner and weapon_owner.name == "Player" and npc.npc_type == NPC.NPCType.ENEMY:
 			_show_hit_marker()

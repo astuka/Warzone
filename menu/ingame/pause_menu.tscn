@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://dk8arl1if3lyr"]
+[gd_scene load_steps=12 format=3 uid="uid://dk8arl1if3lyr"]
 
 [ext_resource type="Texture2D" uid="uid://cgv7xgoy43rbc" path="res://player/crosshair.svg" id="1"]
 [ext_resource type="Theme" uid="uid://ckax6htygmelo" path="res://menu/theme/theme.tres" id="2"]
@@ -10,6 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://h208mfx7dyy2" path="res://menu/button_focus.png" id="7_elacb"]
 [ext_resource type="PackedScene" uid="uid://bq8x7k3m2n4p8" path="res://ui/health_bar.tscn" id="8"]
 [ext_resource type="PackedScene" uid="uid://bq8x7k3m2n4qa" path="res://ui/game_over.tscn" id="9"]
+[ext_resource type="PackedScene" uid="uid://bqx3vhp7k8y8r" path="res://ui/ticket_display.tscn" id="11_eq555"]
 
 [node name="PauseMenu" type="Control" groups=["pause_menu"]]
 layout_mode = 3
@@ -176,19 +177,29 @@ grow_horizontal = 1
 grow_vertical = 1
 
 [node name="HealthBar" parent="." instance=ExtResource("8")]
-anchors_preset = 0
-offset_left = 1592.0
-offset_top = 15.0
-offset_right = 1592.0
-offset_bottom = 15.0
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.87
+anchor_top = 0.052
+anchor_right = 0.87
+anchor_bottom = 0.052
+offset_left = 208.0
+offset_top = -26.8
+offset_right = 208.0
+offset_bottom = -26.8
 
 [node name="GameOver" parent="." instance=ExtResource("9")]
 layout_mode = 1
 
 [node name="DamageOverlay" type="ColorRect" parent="."]
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -25.0
+offset_top = 11.0
+offset_right = -25.0
+offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -219,7 +230,34 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(1, 1, 0.5, 1)
 theme_override_font_sizes/font_size = 65
-text = "Press 'E' to restock"
+text = "Press 'F' to restock"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TicketDisplay2" parent="." instance=ExtResource("11_eq555")]
+layout_mode = 1
+offset_left = 483.0
+offset_top = 14.0
+offset_right = -483.0
+offset_bottom = 93.0
+
+[node name="UnstuckPrompt" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -211.0
+offset_top = -24.0
+offset_right = 221.0
+offset_bottom = 29.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 65
+text = "Press 'F' to unstuck NPC"
 horizontal_alignment = 1
 vertical_alignment = 1
 

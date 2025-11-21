@@ -3,9 +3,9 @@ class_name EnemySpawner
 
 const ALLY_SCENE = preload("res://npc/ally.tscn")
 const ENEMY_SCENE = preload("res://npc/enemy_npc.tscn")
-const SPAWN_DISTANCE = 20.0  # Distance from center to spawn NPCs
-const MAX_ALLIES = 15  # Maximum number of allies at once
-const MAX_ENEMIES = 16  # Maximum number of enemies at once
+const SPAWN_DISTANCE = 20.0 # Distance from center to spawn NPCs
+const MAX_ALLIES = 15 # Maximum number of allies at once
+var max_enemies: int = 15 # Maximum number of enemies at once
 
 # Map is split down the middle along X axis
 # Negative X side = Ally territory
@@ -21,7 +21,7 @@ const SPAWN_Z_MAX = 60.0
 var allies: Array[NPC] = []
 var enemies: Array[NPC] = []
 var spawn_timer: float = 0.0
-var spawn_interval: float = 5.0  # Spawn a new NPC every 5 seconds
+var spawn_interval: float = 5.0 # Spawn a new NPC every 5 seconds
 
 @onready var player = get_tree().get_first_node_in_group("player")
 @onready var voxel_world = get_tree().get_first_node_in_group("voxel_world")
@@ -39,6 +39,9 @@ func _ready():
 	
 	# Spawn initial enemies after scene is fully ready
 	call_deferred("_spawn_initial_enemies")
+	
+	if GameManager:
+		max_enemies = GameManager.current_max_enemies
 
 
 func _spawn_initial_enemies():
@@ -60,7 +63,7 @@ func _process(delta):
 	# Spawn new NPCs if needed
 	if spawn_timer >= spawn_interval:
 		# Spawn enemy if needed
-		if enemies.size() < MAX_ENEMIES:
+		if enemies.size() < max_enemies:
 			spawn_enemy()
 		# Spawn ally if needed
 		if allies.size() < MAX_ALLIES:
@@ -110,7 +113,7 @@ func _get_ally_spawn_position() -> Vector3:
 	# Spawn allies on negative X side
 	var spawn_pos = Vector3(
 		randf_range(ALLY_SPAWN_X_MIN, ALLY_SPAWN_X_MAX),
-		20.0,  # Start high enough to clear tall buildings
+		10.0, # Start high enough to clear tall buildings
 		randf_range(SPAWN_Z_MIN, SPAWN_Z_MAX)
 	)
 	
@@ -120,7 +123,7 @@ func _get_ally_spawn_position() -> Vector3:
 	var result = space_state.intersect_ray(query)
 	
 	if result:
-		spawn_pos = result.position + Vector3(0, 10, 0)  # Place NPC on ground/structure
+		spawn_pos = result.position + Vector3(0, 10, 0) # Place NPC on ground/structure
 		return spawn_pos
 	
 	# If no ground found, spawn at default ground level
@@ -130,7 +133,7 @@ func _get_enemy_spawn_position() -> Vector3:
 	# Spawn enemies on positive X side
 	var spawn_pos = Vector3(
 		randf_range(ENEMY_SPAWN_X_MIN, ENEMY_SPAWN_X_MAX),
-		20.0,  # Start high enough to clear tall buildings
+		20.0, # Start high enough to clear tall buildings
 		randf_range(SPAWN_Z_MIN, SPAWN_Z_MAX)
 	)
 	
@@ -140,7 +143,7 @@ func _get_enemy_spawn_position() -> Vector3:
 	var result = space_state.intersect_ray(query)
 	
 	if result:
-		spawn_pos = result.position + Vector3(0, 10, 0)  # Place NPC on ground/structure
+		spawn_pos = result.position + Vector3(0, 10, 0) # Place NPC on ground/structure
 		return spawn_pos
 	
 	# If no ground found, spawn at default ground level
@@ -152,4 +155,3 @@ func _on_npc_entered_tree(npc: Node, spawn_pos: Vector3):
 		npc.global_position = spawn_pos
 		if npc.has_meta("spawn_position"):
 			npc.remove_meta("spawn_position")
-

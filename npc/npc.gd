@@ -548,14 +548,16 @@ func _update_weapon_display():
 		material.albedo_color = Color(1.0, 0.3, 0.0)
 		weapon_mesh.material_override = material
 
-func take_damage(amount: int):
+func take_damage(amount: int, impact_direction: Vector3 = Vector3.ZERO):
 	health -= amount
 	health = max(0, health)
 	
+	# Spawn blood particles when hit
+	BloodManager.spawn_blood(global_position + Vector3(0, 1, 0), Vector3.UP)
+	
 	# Check if NPC should be deleted
 	if health <= 0:
-		_on_death()
-		queue_free()
+		_on_death(impact_direction)
 		return
 
 func _check_restock_needed():
@@ -749,7 +751,7 @@ func _apply_crowding_avoidance(delta):
 			velocity.x += repel_force.x * delta * 10.0  # Multiply by 10 to make it more immediate
 			velocity.z += repel_force.z * delta * 10.0
 
-func _on_death():
+func _on_death(impact_direction: Vector3 = Vector3.ZERO):
 	# Decrement appropriate team's tickets
 	var game_manager = get_tree().get_first_node_in_group("game_manager")
 	if game_manager:
@@ -757,4 +759,11 @@ func _on_death():
 			game_manager.decrement_ally_tickets()
 		elif npc_type == NPCType.ENEMY:
 			game_manager.decrement_enemy_tickets()
+	
+	# Create ragdoll with physics
+	var ragdoll_impulse = impact_direction * 5.0  # Scale impulse for visual effect
+	RagdollManager.create_ragdoll(global_position, original_color, ragdoll_impulse)
+	
+	# Remove the NPC
+	queue_free()
 

@@ -10,7 +10,7 @@ extends Control
 @onready var hit_marker = $Crosshair/HitMarker
 @onready var ammo_display = $AmmoDisplay
 @onready var restock_prompt = $RestockPrompt
-@onready var npc_reset_prompt = $NPCResetPrompt
+@onready var npc_reset_prompt = $UnstuckPrompt
 
 
 func _ready():
@@ -46,13 +46,13 @@ func _on_Options_pressed():
 
 func _on_MainMenu_pressed():
 	voxel_world.clean_up()
-	get_tree().paused = false  # Unpause before changing scenes
+	get_tree().paused = false # Unpause before changing scenes
 	tree.change_scene_to_packed(load("res://menu/main/main_menu.tscn"))
 
 
 func _on_Exit_pressed():
 	voxel_world.clean_up()
-	get_tree().paused = false  # Unpause before exiting
+	get_tree().paused = false # Unpause before exiting
 	tree.quit()
 
 var damage_tween: Tween = null

@@ -11,8 +11,8 @@ const MOVEMENT_FRICTION_GROUND = 0.9
 const MOVEMENT_FRICTION_AIR = 0.98
 
 const MAX_HEALTH = 100
-const LEAN_ANGLE = 15.0  # Degrees to lean
-const LEAN_SPEED = 8.0  # Speed of lean transition
+const LEAN_ANGLE = 15.0 # Degrees to lean
+const LEAN_SPEED = 8.0 # Speed of lean transition
 
 var _mouse_motion = Vector2()
 
@@ -20,7 +20,7 @@ var current_weapon_index: int = 0
 var weapons: Array[Weapon] = []
 var health: int = MAX_HEALTH
 var is_dead: bool = false
-var lean_amount: float = 0.0  # -1.0 to 1.0 (left to right)
+var lean_amount: float = 0.0 # -1.0 to 1.0 (left to right)
 var is_iron_sights: bool = false
 var is_map_visible: bool = false
 
@@ -48,10 +48,10 @@ var blocks: int = DEFAULT_BLOCKS
 var near_restocking_station: bool = false
 
 const FOV_NORMAL = 74.0
-const FOV_IRON_SIGHTS = 55.0  # Zoomed in FOV for iron sights
+const FOV_IRON_SIGHTS = 55.0 # Zoomed in FOV for iron sights
 
-const STONE_BLOCK = 1  # Block ID for stone blocks
-const BLOCK_PLACEMENT_RANGE = 5.0  # Maximum distance for block placement
+const STONE_BLOCK = 1 # Block ID for stone blocks
+const BLOCK_PLACEMENT_RANGE = 5.0 # Maximum distance for block placement
 
 
 func _ready():
@@ -87,6 +87,10 @@ func _process(_delta):
 	# Don't process player actions when paused
 	if get_tree().paused:
 		return
+	
+	# Apply camera shake effect
+	if camera:
+		CameraShake.apply_shake(camera, _delta)
 	
 	# Update map camera position if map is visible
 	if is_map_visible:
@@ -127,7 +131,7 @@ func _process(_delta):
 		_update_weapon_display()
 		_update_ammo_display()
 	
-	current_weapon_index = clamp(current_weapon_index, 0, 2)  # Max index is 2 (0=pistol, 1=rocket, 2=blocks)
+	current_weapon_index = clamp(current_weapon_index, 0, 2) # Max index is 2 (0=pistol, 1=rocket, 2=blocks)
 	
 	# Shooting or block placement
 	if crosshair.visible and Input.is_action_just_pressed(&"shoot"):
@@ -212,9 +216,9 @@ func _physics_process(delta):
 			var lean_left_pressed = Input.is_action_pressed(&"lean_left")
 			var lean_right_pressed = Input.is_action_pressed(&"lean_right")
 			if lean_left_pressed and not lean_right_pressed:
-				target_lean = 1.0  # Positive for left lean (roll right)
+				target_lean = 1.0 # Positive for left lean (roll right)
 			elif lean_right_pressed and not lean_left_pressed:
-				target_lean = -1.0  # Negative for right lean (roll left)
+				target_lean = -1.0 # Negative for right lean (roll left)
 			else:
 				target_lean = 0.0
 			set_meta("f_key_was_pressed", true)
@@ -227,9 +231,9 @@ func _physics_process(delta):
 		var lean_left_pressed = Input.is_action_pressed(&"lean_left")
 		var lean_right_pressed = Input.is_action_pressed(&"lean_right")
 		if lean_left_pressed and not lean_right_pressed:
-			target_lean = 1.0  # Positive for left lean (roll right)
+			target_lean = 1.0 # Positive for left lean (roll right)
 		elif lean_right_pressed and not lean_left_pressed:
-			target_lean = -1.0  # Negative for right lean (roll left)
+			target_lean = -1.0 # Negative for right lean (roll left)
 		else:
 			target_lean = 0.0
 	
@@ -262,12 +266,12 @@ func _physics_process(delta):
 	# Ladder climbing - allow vertical movement when near ladder
 	if is_near_ladder:
 		# Reduce gravity when on ladder
-		velocity.y *= 0.5  # Slow down vertical velocity
+		velocity.y *= 0.5 # Slow down vertical velocity
 		# Allow climbing up/down with movement keys
 		if Input.is_action_pressed(&"move_forward") or Input.is_action_pressed(&"jump"):
-			velocity.y = 3.0  # Climb up
+			velocity.y = 3.0 # Climb up
 		elif Input.is_action_pressed(&"move_back") or Input.is_action_pressed(&"crouch"):
-			velocity.y = -3.0  # Climb down
+			velocity.y = -3.0 # Climb down
 		else:
 			# Hold position on ladder
 			velocity.y = 0.0
@@ -317,12 +321,12 @@ func _update_weapon_display():
 				# Pistol - smaller cube
 				weapon_mesh.scale = Vector3(0.1, 0.15, 0.3)
 				base_position = Vector3(0.3, -0.2, -0.5)
-				iron_sights_position = Vector3(0.0, -0.15, -0.25)  # Center-bottom for iron sights
+				iron_sights_position = Vector3(0.0, -0.15, -0.25) # Center-bottom for iron sights
 			else:
 				# Rocket launcher - larger cube
 				weapon_mesh.scale = Vector3(0.15, 0.2, 0.5)
 				base_position = Vector3(0.3, -0.25, -0.6)
-				iron_sights_position = Vector3(0.0, -0.4, -0.35)  # Center-bottom for iron sights
+				iron_sights_position = Vector3(0.0, -0.4, -0.35) # Center-bottom for iron sights
 			
 			# Smoothly transition between normal and iron sights position
 			if is_iron_sights:
@@ -337,6 +341,9 @@ func take_damage(amount: int):
 	health -= amount
 	health = max(0, health)
 	_update_health_bar()
+	
+	# Spawn blood particles when hit
+	BloodManager.spawn_blood(global_position + Vector3(0, 1, 0), Vector3.UP)
 	
 	# Show damage effect (red screen overlay)
 	if pause_menu and pause_menu.has_method("show_damage_effect"):
@@ -376,6 +383,10 @@ func _respawn():
 	health = MAX_HEALTH
 	_update_health_bar()
 	
+	# Reset camera shake
+	if camera:
+		CameraShake.stop(camera)
+	
 	# Reset ammo to default values
 	bullets = DEFAULT_BULLETS
 	rockets = DEFAULT_ROCKETS
@@ -404,7 +415,7 @@ func _find_spawn_position() -> Vector3:
 	# Find a valid spawn position on ally side (negative X)
 	var x_pos = randf_range(-55.0, -15.0)
 	var z_pos = randf_range(-55.0, 55.0)
-	var start_y = 20.0  # Start high enough to clear tall buildings
+	var start_y = 20.0 # Start high enough to clear tall buildings
 	
 	# Raycast down to find ground level or top of structure
 	var space_state = get_world_3d().direct_space_state
@@ -440,7 +451,7 @@ func _check_near_ladder() -> bool:
 	
 	for pos in check_positions:
 		var block_id = voxel_world.get_block_global_position(pos)
-		if block_id == 4:  # LADDER_BLOCK
+		if block_id == 4: # LADDER_BLOCK
 			return true
 	
 	return false
@@ -473,9 +484,9 @@ func _place_block():
 		
 		# Check if there's already a block at this position
 		var existing_block = voxel_world.get_block_global_position(block_pos)
-		if existing_block == 0:  # Only place if position is empty
+		if existing_block == 0: # Only place if position is empty
 			voxel_world.set_block_global_position(block_pos, STONE_BLOCK)
-			blocks -= 1  # Decrement block count
+			blocks -= 1 # Decrement block count
 	
 	# Restore original raycast range
 	raycast.target_position = Vector3(0, 0, -4)
@@ -513,7 +524,7 @@ func _get_nearby_friendly_npc() -> NPC:
 	# Check if player is near a friendly NPC (within 3 units)
 	var all_npcs = get_tree().get_nodes_in_group("npcs")
 	var closest_ally: NPC = null
-	var closest_distance: float = 3.0  # Interaction range
+	var closest_distance: float = 3.0 # Interaction range
 	
 	for npc in all_npcs:
 		if not is_instance_valid(npc) or not npc is NPC:
