@@ -47,6 +47,13 @@ var blocks: int = DEFAULT_BLOCKS
 
 var near_restocking_station: bool = false
 
+# Footstep audio
+var footstep_timer: float = 0.0
+const FOOTSTEP_INTERVAL = 0.4
+var footstep_index: int = 0
+var footstep_player: AudioStreamPlayer3D = null
+var footstep_sounds: Array = []
+
 const FOV_NORMAL = 74.0
 const FOV_IRON_SIGHTS = 55.0 # Zoomed in FOV for iron sights
 
@@ -56,6 +63,17 @@ const BLOCK_PLACEMENT_RANGE = 5.0 # Maximum distance for block placement
 
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	
+	# Initialize footstep audio
+	footstep_player = AudioStreamPlayer3D.new()
+	footstep_player.max_distance = 150.0
+	footstep_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+	footstep_player.bus = "SFX"
+	add_child(footstep_player)
+	footstep_sounds = [
+		preload("res://sounds/selected/footstep_1.wav"),
+		preload("res://sounds/selected/footstep_2.wav"),
+	]
 	
 	# Initialize weapons
 	var pistol_script = load("res://weapons/pistol.gd")
@@ -285,6 +303,18 @@ func _physics_process(delta):
 	velocity.z *= MOVEMENT_FRICTION_GROUND if is_on_floor() else MOVEMENT_FRICTION_AIR
 	move_and_slide()
 
+	# Footstep audio
+	var horizontal_speed = Vector2(velocity.x, velocity.z).length()
+	if is_on_floor() and horizontal_speed > 0.5:
+		footstep_timer += delta
+		if footstep_timer >= FOOTSTEP_INTERVAL:
+			footstep_timer = 0.0
+			footstep_player.stream = footstep_sounds[footstep_index]
+			footstep_player.play()
+			footstep_index = (footstep_index + 1) % footstep_sounds.size()
+	else:
+		footstep_timer = 0.0
+	
 	# Jumping, applied next frame (only when not on ladder).
 	if is_on_floor() and Input.is_action_pressed(&"jump") and not is_near_ladder:
 		velocity.y = 7.5

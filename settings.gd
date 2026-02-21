@@ -6,6 +6,9 @@ var fog_enabled = true
 var fog_distance = 80.0 # Fog distance for 16x16 play area
 var world_type = 0 # Not saved, only used during runtime.
 
+var master_volume: float = 1.0
+var sfx_volume: float = 1.0
+
 var _save_path = "user://settings.json"
 @warning_ignore("unused_private_class_variable")
 var _loaded = false
@@ -27,6 +30,10 @@ func _enter_tree():
 			var data = json.get_data()
 			render_distance = data["render_distance"]
 			fog_enabled = data["fog_enabled"]
+			if data.has("master_volume"):
+				master_volume = data["master_volume"]
+			if data.has("sfx_volume"):
+				sfx_volume = data["sfx_volume"]
 	else:
 		save_settings()
 
@@ -36,5 +43,7 @@ func save_settings():
 	var data = {
 		"render_distance": render_distance,
 		"fog_enabled": fog_enabled,
+		"master_volume": master_volume,
+		"sfx_volume": sfx_volume,
 	}
 	file.store_line(JSON.stringify(data))

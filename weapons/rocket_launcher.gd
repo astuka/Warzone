@@ -7,6 +7,9 @@ const ROCKET_FIRE_RATE = 1.0
 const EXPLOSION_RADIUS = 2.0  # Reduced from 3.0 to minimize lag
 const ROCKET_SPEED = 30.0
 
+var rocket_sound: AudioStream = preload("res://sounds/selected/rocket_fire.wav")
+var explosion_sound: AudioStream = preload("res://sounds/selected/explosion.wav")
+
 func _ready():
 	damage = ROCKET_DAMAGE
 	range_distance = ROCKET_RANGE
@@ -25,6 +28,9 @@ func fire(raycast: RayCast3D, voxel_world: Node = null) -> bool:
 	else:
 		# Fire in the direction the raycast is pointing
 		fire_direction = -raycast.global_transform.basis.z
+	
+	# Play rocket fire sound
+	_play_spatial_sound(rocket_sound, raycast.global_position, 600.0)
 	
 	# Create a rocket projectile
 	_create_rocket(raycast.global_position, fire_direction, voxel_world)
@@ -287,7 +293,25 @@ func _damage_player_in_radius(point: Vector3, radius: float):
 			player.take_damage(damage)
 
 
+func _play_spatial_sound(sound: AudioStream, position: Vector3, max_dist: float):
+	var audio = AudioStreamPlayer3D.new()
+	audio.stream = sound
+	audio.max_distance = max_dist
+	audio.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+	audio.bus = "SFX"
+	var world = get_tree().get_first_node_in_group("world")
+	if not world:
+		world = get_tree().current_scene
+	world.add_child(audio)
+	audio.global_position = position
+	audio.play()
+	audio.finished.connect(audio.queue_free)
+
+
 func _create_explosion_effect(position: Vector3):
+	# Play explosion sound
+	_play_spatial_sound(explosion_sound, position, 1200.0)
+	
 	# Create a sphere mesh for the explosion
 	var explosion_mesh = MeshInstance3D.new()
 	var sphere_mesh = SphereMesh.new()

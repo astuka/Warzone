@@ -25,7 +25,7 @@ alignment = 1
 
 [node name="OptionsBackground" type="ColorRect" parent="VBoxContainer"]
 self_modulate = Color(0.45098, 0.45098, 0.45098, 1)
-custom_minimum_size = Vector2(1000, 250)
+custom_minimum_size = Vector2(1000, 400)
 color = Color(0.25098, 0.25098, 0.25098, 0.627451)
 
 [node name="OptionButtons" type="GridContainer" parent="VBoxContainer/OptionsBackground"]
@@ -35,9 +35,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -400.0
-offset_top = -66.0
+offset_top = -130.0
 offset_right = 400.0
-offset_bottom = 66.0
+offset_bottom = 130.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/h_separation = 20
@@ -67,6 +67,30 @@ horizontal_alignment = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
+[node name="MasterVolumeLabel" type="Label" parent="VBoxContainer/OptionsBackground/OptionButtons"]
+size_flags_vertical = 5
+theme_override_font_sizes/font_size = 60
+text = "Master Volume: 100%"
+horizontal_alignment = 2
+
+[node name="MasterVolumeSlider" type="HSlider" parent="VBoxContainer/OptionsBackground/OptionButtons"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+max_value = 100.0
+value = 100.0
+
+[node name="SFXVolumeLabel" type="Label" parent="VBoxContainer/OptionsBackground/OptionButtons"]
+size_flags_vertical = 5
+theme_override_font_sizes/font_size = 60
+text = "SFX Volume: 100%"
+horizontal_alignment = 2
+
+[node name="SFXVolumeSlider" type="HSlider" parent="VBoxContainer/OptionsBackground/OptionButtons"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+max_value = 100.0
+value = 100.0
+
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
 alignment = 1
 
@@ -91,4 +115,6 @@ vertical_alignment = 1
 
 [connection signal="value_changed" from="VBoxContainer/OptionsBackground/OptionButtons/RenderDistanceSlider" to="VBoxContainer/OptionsBackground/OptionButtons" method="_on_RenderDistanceSlider_value_changed"]
 [connection signal="pressed" from="VBoxContainer/OptionsBackground/OptionButtons/FogCheckBox" to="VBoxContainer/OptionsBackground/OptionButtons" method="_on_FogCheckBox_pressed"]
+[connection signal="value_changed" from="VBoxContainer/OptionsBackground/OptionButtons/MasterVolumeSlider" to="VBoxContainer/OptionsBackground/OptionButtons" method="_on_MasterVolumeSlider_value_changed"]
+[connection signal="value_changed" from="VBoxContainer/OptionsBackground/OptionButtons/SFXVolumeSlider" to="VBoxContainer/OptionsBackground/OptionButtons" method="_on_SFXVolumeSlider_value_changed"]
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/Back" to="." method="_on_Back_pressed"]
