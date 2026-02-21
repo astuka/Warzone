@@ -7,6 +7,8 @@ const PISTOL_FIRE_RATE = 0.25
 const BULLET_SPEED = 60.0
 const BLOCK_HITS_TO_DESTROY = 10
 
+var gunshot_sound: AudioStream = preload("res://sounds/selected/gunshot_fire.wav")
+
 # Static dictionary to track block damage across all pistol instances
 static var block_damage_tracker = {}
 
@@ -29,10 +31,28 @@ func fire(raycast: RayCast3D, voxel_world: Node = null) -> bool:
 		# Fire in the direction the raycast is pointing
 		fire_direction = -raycast.global_transform.basis.z
 	
+	# Play gunshot sound at shooter's position
+	_play_gunshot_sound(raycast.global_position)
+	
 	# Create a bullet projectile
 	_create_bullet(raycast.global_position, fire_direction, voxel_world)
 	
 	return true
+
+
+func _play_gunshot_sound(position: Vector3):
+	var audio = AudioStreamPlayer3D.new()
+	audio.stream = gunshot_sound
+	audio.max_distance = 500.0
+	audio.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+	audio.bus = "SFX"
+	var world = get_tree().get_first_node_in_group("world")
+	if not world:
+		world = get_tree().current_scene
+	world.add_child(audio)
+	audio.global_position = position
+	audio.play()
+	audio.finished.connect(audio.queue_free)
 
 
 func _create_bullet(start_pos: Vector3, direction: Vector3, voxel_world: Node):

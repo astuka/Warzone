@@ -49,6 +49,13 @@ var crowding_repel_strength: float = 8.0  # How strongly NPCs repel from each ot
 var crowding_check_range: float = 7.0  # Distance to check for nearby NPCs (increased)
 var crowding_restock_multiplier: float = 2.0  # Extra repel strength when near restocking station
 
+# Footstep audio
+var footstep_timer: float = 0.0
+const FOOTSTEP_INTERVAL = 0.45
+var footstep_index: int = 0
+var footstep_player: AudioStreamPlayer3D = null
+var footstep_sounds: Array = []
+
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var weapon_mesh: MeshInstance3D = $WeaponMesh
@@ -100,6 +107,17 @@ func _ready():
 		add_child(fire_raycast)
 		fire_raycast.position = Vector3(0, 1.5, 0)  # Eye level
 		fire_raycast.target_position = Vector3(0, 0, -10)
+	
+	# Initialize footstep audio
+	footstep_player = AudioStreamPlayer3D.new()
+	footstep_player.max_distance = 150.0
+	footstep_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+	footstep_player.bus = "SFX"
+	add_child(footstep_player)
+	footstep_sounds = [
+		preload("res://sounds/selected/footstep_1.wav"),
+		preload("res://sounds/selected/footstep_2.wav"),
+	]
 	
 	# Initialize weapons
 	_initialize_weapons()
@@ -218,6 +236,7 @@ func _physics_process(delta):
 		# Apply minimal crowding avoidance during restocking (don't let it override direction)
 		_apply_crowding_avoidance_restocking(delta)
 		
+		_update_footsteps(delta)
 		move_and_slide()
 		return
 	
@@ -227,6 +246,7 @@ func _physics_process(delta):
 		_handle_combat(delta)
 		# Apply crowding avoidance
 		_apply_crowding_avoidance(delta)
+		_update_footsteps(delta)
 		move_and_slide()
 		return
 	
@@ -236,6 +256,7 @@ func _physics_process(delta):
 	# Apply crowding avoidance
 	_apply_crowding_avoidance(delta)
 	
+	_update_footsteps(delta)
 	move_and_slide()
 
 func _find_target():
@@ -750,6 +771,19 @@ func _apply_crowding_avoidance(delta):
 			# Normal application when fewer NPCs nearby
 			velocity.x += repel_force.x * delta * 10.0  # Multiply by 10 to make it more immediate
 			velocity.z += repel_force.z * delta * 10.0
+
+func _update_footsteps(delta):
+	var horizontal_speed = Vector2(velocity.x, velocity.z).length()
+	if is_on_floor() and horizontal_speed > 0.5:
+		footstep_timer += delta
+		if footstep_timer >= FOOTSTEP_INTERVAL:
+			footstep_timer = 0.0
+			footstep_player.stream = footstep_sounds[footstep_index]
+			footstep_player.play()
+			footstep_index = (footstep_index + 1) % footstep_sounds.size()
+	else:
+		footstep_timer = 0.0
+
 
 func _on_death(impact_direction: Vector3 = Vector3.ZERO):
 	# Decrement appropriate team's tickets

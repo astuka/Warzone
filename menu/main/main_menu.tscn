@@ -93,6 +93,27 @@ text = "Options"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="Credits" type="TextureButton" parent="TitleScreen/ButtonHolder/MainButtons"]
+layout_mode = 2
+texture_normal = ExtResource("7")
+texture_pressed = ExtResource("7_hsmm5")
+texture_hover = ExtResource("8_tutt7")
+texture_focused = ExtResource("9_d3hm1")
+
+[node name="Label" type="Label" parent="TitleScreen/ButtonHolder/MainButtons/Credits"]
+texture_filter = 1
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -1.0
+offset_bottom = -18.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 60
+text = "Credits"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="Exit" type="TextureButton" parent="TitleScreen/ButtonHolder/MainButtons"]
 layout_mode = 2
 texture_normal = ExtResource("7")
@@ -230,4 +251,5 @@ horizontal_alignment = 1
 
 [connection signal="pressed" from="TitleScreen/ButtonHolder/MainButtons/Start" to="." method="_on_Start_pressed"]
 [connection signal="pressed" from="TitleScreen/ButtonHolder/MainButtons/Options" to="." method="_on_Options_pressed"]
+[connection signal="pressed" from="TitleScreen/ButtonHolder/MainButtons/Credits" to="." method="_on_Credits_pressed"]
 [connection signal="pressed" from="TitleScreen/ButtonHolder/MainButtons/Exit" to="." method="_on_Exit_pressed"]

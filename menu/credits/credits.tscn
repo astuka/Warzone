@@ -1,0 +1,95 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://menu/credits/credits.gd" id="1"]
+[ext_resource type="Theme" uid="uid://ckax6htygmelo" path="res://menu/theme/theme.tres" id="2"]
+[ext_resource type="Texture2D" uid="uid://ej6lqf2fptv8" path="res://menu/button.png" id="3"]
+[ext_resource type="Texture2D" uid="uid://blcjvv0p0a6v8" path="res://menu/button_pressed.png" id="4"]
+[ext_resource type="Texture2D" uid="uid://cfh73c8wnvgol" path="res://menu/button_hover.png" id="5"]
+[ext_resource type="Texture2D" uid="uid://h208mfx7dyy2" path="res://menu/button_focus.png" id="6"]
+
+[node name="Credits" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="Title" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 80
+text = "Credits"
+horizontal_alignment = 1
+
+[node name="Spacer1" type="Control" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="SoundCredits" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "Sound Effects"
+horizontal_alignment = 1
+
+[node name="Credit1" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "\"Footsteps\" by Owlstorm (freesound.org/people/Owlstorm/)
+Licensed under Creative Commons Attribution 3.0"
+horizontal_alignment = 1
+
+[node name="Credit2" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "\"Guns and War Sound Effects\" by 18hiltc (freesound.org/people/18hiltc/)
+Licensed under Creative Commons Attribution 3.0"
+horizontal_alignment = 1
+
+[node name="Credit3" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "\"Massive Explosion\" by Battlesounds (freesound.org/people/Battlesounds/)
+Licensed under Creative Commons Attribution 3.0"
+horizontal_alignment = 1
+
+[node name="Spacer2" type="Control" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="Back" type="TextureButton" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+texture_normal = ExtResource("3")
+texture_pressed = ExtResource("4")
+texture_hover = ExtResource("5")
+texture_focused = ExtResource("6")
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer/Back"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -1.0
+offset_bottom = -18.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 60
+text = "Back"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[connection signal="pressed" from="VBoxContainer/HBoxContainer/Back" to="." method="_on_Back_pressed"]

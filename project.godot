@@ -29,6 +29,7 @@ RagdollManager="*res://world/ragdoll_manager.gd"
 SmokeManager="*res://world/smoke_manager.gd"
 CameraShake="*res://world/camera_shake.gd"
 GameManager="*res://game_manager.gd"
+AudioManager="*res://audio_manager.gd"
 
 [display]
 

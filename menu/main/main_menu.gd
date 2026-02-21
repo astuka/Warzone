@@ -27,5 +27,9 @@ func _on_Options_pressed():
 	title.visible = false
 
 
+func _on_Credits_pressed():
+	tree.change_scene_to_packed(preload("res://menu/credits/credits.tscn"))
+
+
 func _on_Exit_pressed():
 	tree.quit()
