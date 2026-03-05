@@ -45,13 +45,16 @@ func _on_Options_pressed():
 
 
 func _on_MainMenu_pressed():
-	voxel_world.clean_up()
+	if voxel_world:
+		voxel_world.clean_up()
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	get_tree().paused = false # Unpause before changing scenes
-	tree.change_scene_to_packed(load("res://menu/main/main_menu.tscn"))
+	get_tree().change_scene_to_file("res://menu/main/main_menu.tscn")
 
 
 func _on_Exit_pressed():
-	voxel_world.clean_up()
+	if voxel_world:
+		voxel_world.clean_up()
 	get_tree().paused = false # Unpause before exiting
 	tree.quit()
 
