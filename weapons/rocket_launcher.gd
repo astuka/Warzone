@@ -293,7 +293,7 @@ func _damage_player_in_radius(point: Vector3, radius: float):
 			player.take_damage(damage)
 
 
-func _play_spatial_sound(sound: AudioStream, position: Vector3, max_dist: float):
+func _play_spatial_sound(sound: AudioStream, position: Vector3, max_dist: float, max_duration: float = 1.0):
 	var audio = AudioStreamPlayer3D.new()
 	audio.stream = sound
 	audio.max_distance = max_dist
@@ -305,7 +305,12 @@ func _play_spatial_sound(sound: AudioStream, position: Vector3, max_dist: float)
 	world.add_child(audio)
 	audio.global_position = position
 	audio.play()
-	audio.finished.connect(audio.queue_free)
+	# Limit playback duration to prevent stale audio nodes accumulating
+	get_tree().create_timer(max_duration).timeout.connect(func():
+		if is_instance_valid(audio):
+			audio.stop()
+			audio.queue_free()
+	)
 
 
 func _create_explosion_effect(position: Vector3):

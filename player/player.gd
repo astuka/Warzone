@@ -49,7 +49,7 @@ var near_restocking_station: bool = false
 
 # Footstep audio
 var footstep_timer: float = 0.0
-const FOOTSTEP_INTERVAL = 0.4
+const FOOTSTEP_INTERVAL = 0.2
 var footstep_index: int = 0
 var footstep_player: AudioStreamPlayer3D = null
 var footstep_sounds: Array = []

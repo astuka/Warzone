@@ -58,8 +58,9 @@ func _on_restart_pressed():
 
 func _on_main_menu_pressed():
 	# Unpause and go to main menu
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	get_tree().paused = false
 	var voxel_world = get_tree().get_first_node_in_group("voxel_world")
 	if voxel_world:
 		voxel_world.clean_up()
-	get_tree().change_scene_to_packed(load("res://menu/main/main_menu.tscn"))
+	get_tree().change_scene_to_file("res://menu/main/main_menu.tscn")

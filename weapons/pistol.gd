@@ -52,7 +52,12 @@ func _play_gunshot_sound(position: Vector3):
 	world.add_child(audio)
 	audio.global_position = position
 	audio.play()
-	audio.finished.connect(audio.queue_free)
+	# Stop after a brief moment so only a single shot is heard
+	get_tree().create_timer(0.15).timeout.connect(func():
+		if is_instance_valid(audio):
+			audio.stop()
+			audio.queue_free()
+	)
 
 
 func _create_bullet(start_pos: Vector3, direction: Vector3, voxel_world: Node):
