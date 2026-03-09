@@ -82,12 +82,13 @@ func get_block_global_position(block_global_position: Vector3i):
 
 
 func _is_boundary_wall(pos: Vector3i) -> bool:
-	# Check if position is part of the boundary wall
-	if pos.y < 0 or pos.y >= BOUNDARY_WALL_HEIGHT:
+	# Check if position is part of the boundary wall (includes dirt layers below)
+	# Dirt layers extend down to y=-4, wall extends up to BOUNDARY_WALL_HEIGHT
+	if pos.y < -4 or pos.y >= BOUNDARY_WALL_HEIGHT:
 		return false
-	
+
 	# Check if on any of the four walls
-	return (pos.x == BOUNDARY_MIN or pos.x == BOUNDARY_MAX or 
+	return (pos.x == BOUNDARY_MIN or pos.x == BOUNDARY_MAX or
 			pos.z == BOUNDARY_MIN or pos.z == BOUNDARY_MAX)
 
 func set_block_global_position(block_global_position: Vector3i, block_id):
